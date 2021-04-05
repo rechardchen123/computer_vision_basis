@@ -14,11 +14,11 @@ static std::mt19937 rng(rd());
 
 std::set<int> get_random_index(int max_idx, int n);
 
-float check_convergence(const std::vector<Center>& current_centers,
-                        const std::vector<Center>& last_centers);
+float check_convergence(const std::vector<Center> &current_centers,
+                        const std::vector<Center> &last_centers);
 
-inline float calc_square_distance(const std::array<float, 3>& arr1,
-                                  const std::array<float, 3>& arr2);
+inline float calc_square_distance(const std::array<float, 3> &arr1,
+                                  const std::array<float, 3> &arr2);
 
 /**
  * @brief Construct a new Kmeans object
@@ -37,7 +37,7 @@ Kmeans::Kmeans(cv::Mat img, const int k) {
             std::array<float, 3> tmp_feature;
             for (int channel = 0; channel < 3; channel++) {
                 tmp_feature[channel] =
-                    static_cast<float>(img.at<cv::Vec3b>(r, c)[channel]);
+                        static_cast<float>(img.at<cv::Vec3b>(r, c)[channel]);
             }
             samples_.emplace_back(tmp_feature, r, c, -1);
         }
@@ -52,7 +52,7 @@ Kmeans::Kmeans(cv::Mat img, const int k) {
 // TODO Try to implement a better initialization function
 void Kmeans::initialize_centers() {
     std::set<int> random_idx =
-        get_random_index(samples_.size() - 1, centers_.size());
+            get_random_index(samples_.size() - 1, centers_.size());
     int i_center = 0;
 
     for (auto index : random_idx) {
@@ -62,17 +62,30 @@ void Kmeans::initialize_centers() {
 }
 
 /**
- * @brief change the label of each sample to the nearst center
+ * @brief change the label of each sample to the nearest center
  *
  */
 void Kmeans::update_labels() {
-    for (Sample& sample : samples_) {
+    for (Sample &sample : samples_) {
         // TODO update labels of each feature
+        float min_distance = 1000000;
+        int min_label = 10000;
+        float c = 0;
+
+        for (int i = 0; i < centers_.size(); i++) {
+            c = calc_square_distance(sample.feature_, centers_[i].feature_);
+            if (c < min_distance) {
+                min_distance = c;
+                min_label = i + 1;
+
+            }
+        }
+        sample.label_ = min_label;
     }
 }
 
 /**
- * @brief move the centers according to new lables
+ * @brief move the centers according to new labels
  *
  */
 void Kmeans::update_centers() {
@@ -80,6 +93,36 @@ void Kmeans::update_centers() {
     last_centers_ = centers_;
     // calculate the mean value of feature vectors in each cluster
     // TODO complete update centers functions.
+    float R, G, B = 0;   //image RGB values
+    int total_num = 0;
+    int center_index = 0;   // initial center index
+    int label_1 = center_index + 1;
+    float sum = 0;
+    float sum_total = 0;
+    for (Center &center:centers_) {
+        for (Sample &sample : samples_) {
+            if (sample.label_ == label_1) {
+                R += sample.feature_[0]; // update the Red value for one image
+                G += sample.feature_[1];
+                B += sample.feature_[2];
+                total_num++;
+            }
+        }
+        sum = R + B + G;
+        sum_total += sum;
+        centers_[center_index].feature_[0] = R / total_num;
+        centers_[center_index].feature_[1] = G / total_num;
+        centers_[center_index].feature_[2] = B / total_num;
+        R = 0;
+        G = 0;
+        B = 0;
+        total_num = 0;
+        center_index++;
+        label_1++;
+
+    }
+    sum_total /= centers_.size();
+
 }
 
 /**
@@ -97,16 +140,24 @@ bool Kmeans::is_terminate(int current_iter, int max_iteration,
     // TODO Write a terminate function.
     // helper funtion: check_convergence(const std::vector<Center>&
     // current_centers, const std::vector<Center>& last_centers)
-
-    return true;
+    float distance = check_convergence(centers_, last_centers_);
+    if (distance < smallest_convergence_radius) {
+        return true;
+    } else if (current_iter == max_iteration) {
+        return true;
+    } else {
+        return false;
+    }
 }
 
 std::vector<Sample> Kmeans::get_result_samples() const {
     return samples_;
 }
+
 std::vector<Center> Kmeans::get_result_centers() const {
     return centers_;
 }
+
 /**
  * @brief Execute k means algorithm
  *                1. initialize k centers randomly
@@ -144,6 +195,7 @@ std::set<int> get_random_index(int max_idx, int n) {
     }
     return random_idx;
 }
+
 /**
  * @brief Calculate the L2 norm of current centers and last centers
  *
@@ -151,13 +203,13 @@ std::set<int> get_random_index(int max_idx, int n) {
  * @param last_centers  last assigned centers with 3 channels
  * @return float
  */
-float check_convergence(const std::vector<Center>& current_centers,
-                        const std::vector<Center>& last_centers) {
+float check_convergence(const std::vector<Center> &current_centers,
+                        const std::vector<Center> &last_centers) {
     float convergence_radius = 0;
     for (int i_center = 0; i_center < current_centers.size(); i_center++) {
         convergence_radius +=
-            calc_square_distance(current_centers[i_center].feature_,
-                                 last_centers[i_center].feature_);
+                calc_square_distance(current_centers[i_center].feature_,
+                                     last_centers[i_center].feature_);
     }
     return convergence_radius;
 }
@@ -169,8 +221,8 @@ float check_convergence(const std::vector<Center>& current_centers,
  * @param arr2
  * @return float
  */
-inline float calc_square_distance(const std::array<float, 3>& arr1,
-                                  const std::array<float, 3>& arr2) {
+inline float calc_square_distance(const std::array<float, 3> &arr1,
+                                  const std::array<float, 3> &arr2) {
     return std::pow((arr1[0] - arr2[0]), 2) + std::pow((arr1[1] - arr2[1]), 2) +
            std::pow((arr1[2] - arr2[2]), 2);
 }
